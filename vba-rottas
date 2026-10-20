@@ -1,0 +1,271 @@
+Sub conciliar_banco()
+'Aba proc com o nome da filial na coluna A ( Filial: SCP - PORTO BELLO_ALM) e o código da filial na coluna C
+'Aba proc com o concatenar na coluna G e a conta bancária na coluna F
+
+Dim ws As Worksheet
+Dim ws2 As Worksheet
+Dim ws3 As Worksheet
+Dim i As Long
+Dim ultimaLinha As Long
+Dim ultimaLinhaf As Long
+Dim ultimaLinhar As Long
+Dim contador As Long
+Dim partes As Variant
+Dim dict As Object
+Dim chave As String
+Dim valCont As Double, valFin As Double
+
+Application.ScreenUpdating = False
+Set ws = ActiveWorkbook.Sheets("contabilidade")
+Set ws2 = ActiveWorkbook.Sheets("financeiro")
+
+'Corrigir a aba Contabilidade
+ws.Columns("A:E").Insert
+ws.Range("A1:E1").Value = Array("Ordem", "Conta", "Filial", "Agente", "Concat")
+ultimaLinha = ws.Cells(ws.Rows.Count, "F").End(xlUp).Row
+ws.Rows(ultimaLinha - 1 & ":" & ultimaLinha).Delete
+ultimaLinha = ws.Cells(ws.Rows.Count, "F").End(xlUp).Row
+
+contador = 1
+For i = 2 To ultimaLinha
+    ws.Cells(i, "A").Value = contador
+    contador = contador + 1
+    
+    If LCase(Trim(ws.Cells(i, "F").Value)) Like "conta*" Then
+        partes = Split(ws.Cells(i, "F").Value, "-")
+        If UBound(partes) >= 1 Then
+            ws.Cells(i, "B").Value = Trim(partes(1))
+        End If
+    End If
+    
+    If LCase(Trim(ws.Cells(i, "F").Value)) Like "filial*" Then
+        On Error Resume Next
+        ws.Cells(i, "C").Formula = "=TEXTBEFORE(TEXTAFTER(F" & i & ", ""Filial: "")," & """ -"" )"
+        ws.Cells(i, "C").Value = ws.Cells(i, "C").Value
+        On Error GoTo 0
+        ws.Cells(i, "B").Value = ws.Cells(i - 1, "B").Value
+    End If
+    
+    If LCase(Trim(ws.Cells(i, "F").Value)) Like "agente*" Then
+        On Error Resume Next
+        ws.Cells(i, "D").Formula = "=TEXTBEFORE(TEXTAFTER(F" & i & ", ""Agente: "")," & """ -"" )"
+        ws.Cells(i, "D").Value = ws.Cells(i, "D").Value
+        On Error GoTo 0
+        ws.Cells(i, "C").Value = ws.Cells(i - 1, "C").Value
+        ws.Cells(i, "B").Value = ws.Cells(i - 1, "B").Value
+        ws.Cells(i, "E").NumberFormat = "@"
+        ws.Cells(i, "E").Value = CStr(ws.Cells(i, "C").Value) & "-" & CStr(ws.Cells(i, "D").Value)
+        ws.Cells(i, "E").Value = ws.Cells(i, "E").Value
+        If ws.Cells(i, "N").Value < 0.5 Then
+            ws.Cells(i, "E").Value = ""
+        End If
+    End If
+Next i
+
+With ws
+    .Columns("G:J").Delete
+    .Range("F1:J1").Value = Array("", "Saldo anterior", "Débito", "Crédito", "Saldo")
+    .Columns("A:J").AutoFit
+End With
+
+ws.Activate
+ws.Rows("2:2").Select
+ActiveWindow.FreezePanes = True
+ws.Columns("A:J").AutoFilter
+
+'Corrigir a aba do financeiro
+ultimaLinhaf = ws2.Cells(ws2.Rows.Count, "A").End(xlUp).Row
+ws2.Rows(ultimaLinhaf - 7 & ":" & ultimaLinhaf).Delete
+ws2.Columns("A:F").Insert
+ws2.Range("A1:N1").Value = Array("Ordem", "Conta", "Banco", "Filial", "Agente", "Concat", "", "", "", "Saldo anterior", "Saída", "Entrada", "Saldo do período", "Saldo")
+ultimaLinhaf = ws2.Cells(ws2.Rows.Count, "G").End(xlUp).Row
+
+contador = 1
+For i = 2 To ultimaLinhaf
+    ws2.Cells(i, "A").Value = contador
+    contador = contador + 1
+    
+    If LCase(Trim(ws2.Cells(i, "G").Value)) Like "*conta*" _
+    Or LCase(Trim(ws2.Cells(i, "G").Value)) Like "*aplicação*" _
+    Or LCase(Trim(ws2.Cells(i, "G").Value)) Like "*cartões*" _
+    Or LCase(Trim(ws2.Cells(i, "G").Value)) Like "*fundo fixo*" _
+    Or LCase(Trim(ws2.Cells(i, "G").Value)) Like "*investimento*" _
+    Or LCase(Trim(ws2.Cells(i, "G").Value)) Like "*invetimento*" _
+    Or LCase(Trim(ws2.Cells(i, "G").Value)) Like "*fixado*" _
+    Or LCase(Trim(ws2.Cells(i, "G").Value)) Like "*ipca*" _
+    Or LCase(Trim(ws2.Cells(i, "G").Value)) Like "*dinheiro*" _
+    Or LCase(Trim(ws2.Cells(i, "G").Value)) Like "*gerencial*" _
+    Or LCase(Trim(ws2.Cells(i, "G").Value)) Like "*corporativos*" Then
+    
+        partes = Split(ws2.Cells(i, "G").Value, "-")
+        If UBound(partes) >= 0 Then
+            ws2.Cells(i, "B").Value = Trim(partes(0))
+        End If
+        ws2.Cells(i, "D").Value = ws2.Cells(i - 1, "D").Value
+    End If
+    
+    If LCase(Trim(ws2.Cells(i, "G").Value)) Like "filial*" Then
+        ws2.Cells(i, "D").Formula = "=XLOOKUP(G" & i & ",'proc'!A:A,'proc'!C:C,"""")"
+        ws2.Cells(i, "D").Value = ws2.Cells(i, "D").Value
+    End If
+    
+    If IsNumeric(ws2.Cells(i, "G").Value) Then
+        ws2.Cells(i, "E").Value = ws2.Cells(i, "G").Value
+        ws2.Cells(i, "D").Value = ws2.Cells(i - 1, "D").Value
+        ws2.Cells(i, "B").Value = ws2.Cells(i - 1, "B").Value
+        ws2.Cells(i, "C").Value = ws2.Cells(i - 1, "C").Value
+        ws2.Cells(i, "F").NumberFormat = "@"
+        ws2.Cells(i, "F").Value = CStr(ws2.Cells(i, "D").Value) & "-" & CStr(ws2.Cells(i, "E").Value)
+        ws2.Cells(i, "F").Value = ws2.Cells(i, "F").Value
+        If ws2.Cells(i, "J").Value + ws2.Cells(i, "K").Value + ws2.Cells(i, "L").Value + ws2.Cells(i, "M").Value = 0 Then
+            ws2.Cells(i, "F").Value = ""
+        End If
+    End If
+    
+    If LCase(Trim(ws2.Cells(i, "G").Value)) Like "*banco*" Then
+        partes = Split(ws2.Cells(i, "G").Value, ":")
+        If UBound(partes) >= 1 Then
+            ws2.Cells(i, "C").Value = Trim(partes(1))
+        End If
+        ws2.Cells(i, "D").Value = ws2.Cells(i - 1, "D").Value
+        ws2.Cells(i, "B").Value = ws2.Cells(i - 1, "B").Value
+    End If
+    
+    If LCase(Trim(ws2.Cells(i, "G").Value)) Like "total*" Then
+        ws2.Cells(i, "D").Value = ws2.Cells(i - 1, "D").Value
+    End If
+    
+    If ws2.Cells(i, "G").Value = 0 Then
+        ws2.Cells(i, "F").Value = ""
+    End If
+    
+Next i
+
+'Corrigir a ordem
+For i = 2 To ultimaLinhaf
+  If LCase(Trim(ws2.Cells(i, "G").Value)) Like "total em conta*" Then
+    ws2.Rows(i).Delete
+    End If
+Next i
+
+contador = 1
+ultimaLinhaf = ws2.Cells(ws2.Rows.Count, "G").End(xlUp).Row
+For i = 2 To ultimaLinhaf
+    ws2.Cells(i, "A").Value = contador
+    contador = contador + 1
+Next i
+
+ws2.Activate
+ws2.Rows("2:2").Select
+ActiveWindow.FreezePanes = True
+ws2.Columns("A:N").AutoFilter
+ws2.Columns("A:N").AutoFit
+
+
+'Criar a aba da conferência
+On Error Resume Next
+Set ws3 = Worksheets("RESUMO")
+On Error GoTo 0
+
+If ws3 Is Nothing Then
+    Set ws3 = Worksheets.Add
+    ws3.Name = "RESUMO"
+Else
+    ws3.Cells.Clear
+End If
+
+ws3.Range("A1:J1").Value = Array("Concatenar", "Contábil", "Financeiro", "Diferença C-F", "Extrato", "Diferença C-E", "Diferença F-E", "Agente", "Conta", "Conta formatada")
+ws3.Columns("A").NumberFormat = "@"
+ws3.Columns("B:G").NumberFormat = "#,##0.00"
+
+Set dict = CreateObject("Scripting.Dictionary")
+dict.CompareMode = vbTextCompare
+
+ultimaLinha = ws.Cells(ws.Rows.Count, "E").End(xlUp).Row
+For i = 2 To ultimaLinha
+    chave = Trim(CStr(ws.Cells(i, "E").Value))
+    If chave <> "" Then
+        If Not dict.Exists(chave) Then dict.Add chave, Array(0#, 0#)
+    End If
+Next i
+
+ultimaLinhaf = ws2.Cells(ws2.Rows.Count, "F").End(xlUp).Row
+For i = 2 To ultimaLinhaf
+    chave = Trim(CStr(ws2.Cells(i, "F").Value))
+    If chave <> "" Then
+        If Not dict.Exists(chave) Then dict.Add chave, Array(0#, 0#)
+    End If
+Next i
+
+For i = 2 To ultimaLinha
+    chave = Trim(CStr(ws.Cells(i, "E").Value))
+    If chave <> "" Then
+        If dict.Exists(chave) Then
+            Dim arr As Variant
+            arr = dict(chave)
+            arr(0) = arr(0) + CDbl(ws.Cells(i, "J").Value)
+            dict(chave) = arr
+        End If
+    End If
+Next i
+
+For i = 2 To ultimaLinhaf
+    chave = Trim(CStr(ws2.Cells(i, "F").Value))
+    If chave <> "" Then
+        If dict.Exists(chave) Then
+            Dim arr2 As Variant
+            arr2 = dict(chave)
+            arr2(1) = arr2(1) + CDbl(ws2.Cells(i, "N").Value)
+            dict(chave) = arr2
+        End If
+    End If
+Next i
+
+Dim linhaResumo As Long
+Dim k As Variant
+linhaResumo = 2
+
+For Each k In dict.Keys
+    ws3.Cells(linhaResumo, "A").Value = CStr(k)
+    ws3.Cells(linhaResumo, "B").Value = dict(k)(0)
+    ws3.Cells(linhaResumo, "C").Value = dict(k)(1)
+    ws3.Cells(linhaResumo, "D").Value = dict(k)(1) - dict(k)(0)
+    linhaResumo = linhaResumo + 1
+Next k
+
+'Formatação
+ws3.Activate
+ws3.Rows("2:2").Select
+ActiveWindow.FreezePanes = True
+
+ultimaLinhar = ws3.Cells(ws3.Rows.Count, "A").End(xlUp).Row
+For i = 2 To ultimaLinhar
+ws3.Cells(i, "F") = "=B" & i & "-E" & i
+ws3.Cells(i, "G") = "=C" & i & "-E" & i
+ws3.Cells(i, "H").Formula = "=TEXTAFTER(A" & i & ",""-"")"
+ws3.Cells(i, "H").Value = ws3.Cells(i, "H").Value
+ws3.Cells(i, "H").NumberFormat = "0"
+ws3.Cells(i, "I").Formula = "=XLOOKUP(A" & i & ",'proc'!G:G,'proc'!F:F,"""")"
+'ws3.Cells(i, "J").NumberFormat = "@"
+ws3.Cells(i, "J").Value = Replace(CStr(ws3.Cells(i, "I").Value), "-", "")
+Do While Left(ws3.Cells(i, "J").Value, 1) = "0" And Len(ws3.Cells(i, "J").Value) > 1
+ws3.Cells(i, "J").Value = Mid(ws3.Cells(i, "J").Value, 2)
+Loop
+Next i
+
+With ws3
+.Columns("A:J").AutoFilter
+.Columns("A:J").AutoFit
+.Activate
+.Rows("2:2").Select
+End With
+ActiveWindow.FreezePanes = True
+ws3.Range("A1:J1").Font.Bold = True
+
+Application.ScreenUpdating = True
+MsgBox "Processo finalizado"
+End Sub
+
+
+
+
